@@ -1,0 +1,77 @@
+//------------------ zdefiniowanie pinów --------------------------
+#define ledPin2 2
+#define ledPin3 3
+#define ledPin4 4
+#include "U8glib.h"                          //bibloteka  oleda
+U8GLIB_SSD1306_128X64 u8g(U8G_I2C_OPT_NONE|U8G_I2C_OPT_DEV_0);  
+
+//------------------ ustawienia  stanow początkowych   ------------
+
+unsigned long previousMillis2 = 0; 
+unsigned long previousMillis3 = 0;        
+int ledState2 = HIGH;  
+int ledState3 = HIGH;  
+int ledState4 = HIGH; 
+int flaga2 = 0;     
+//-----------------------inicjaizacje------------------------------    
+void setup()
+{
+Serial.begin(9600);
+u8g.setFont(u8g_font_unifont);        // dla wyswietlacza
+pinMode(ledPin2, OUTPUT);            //LEDY ....
+pinMode(ledPin3, OUTPUT);
+pinMode(ledPin4, OUTPUT);
+}
+
+void loop(){
+//--------------------- pierwsza dioda  wszeregu trzech się zapala --------------------------------------------                                             
+  unsigned long Millis2 = millis();           //wczytanie MILLIS startowego
+   if ( (ledState2 == HIGH) &&(Millis2 - previousMillis2 >= 100))   // swiece LED... jesli mineło 500  wykonaj przebieg if-a  
+  {   
+    flaga2=1;                            // aktualna wartość dla wyswietlacza = Led ktory swieci 
+    ledState2 = LOW;                     //obecny  led off
+    ledState3 = HIGH;                    //kolejny led on
+ // ledState4 = LOW;                     // niepotrzebna linia zostawiłem program pracuje  bez niej prawidłowo
+    previousMillis2 = Millis2 ;          // przygotowanie milis  do nastepnego przejscia warunku  
+    digitalWrite(ledPin2, ledState2);    // wczytanie stanow na wyjscia led
+    digitalWrite(ledPin3, ledState3);    // wczytanie stanow na wyjscia led
+ // digitalWrite(ledPin4, ledState4);    // niepotrzebna linia zostawiłem program pracuje  bez niej prawidłowo                                          
+  }
+  //--------------------- druga dioda  wszeregu trzech się zapala -----------------------------------------
+  if ( (ledState3 == HIGH) &&(Millis2 - previousMillis2 >= 100))                 
+  {
+  flaga2=2; 
+    ledState3 = LOW;  
+ // ledState2 = LOW;
+    ledState4 = HIGH;                                                          
+    previousMillis2 = Millis2 ;               // opis  się powtarza inne ledy zapalane i gaszone 
+ // digitalWrite(ledPin2, ledState2);  
+    digitalWrite(ledPin3, ledState3);  
+    digitalWrite(ledPin4, ledState4);                                            
+  }
+  //--------------------- trzecia dioda  wszeregu trzech się zapala -------------------------------------------- 
+   if ( (ledState4 == HIGH) &&(Millis2 - previousMillis2 >= 100))                 
+  {
+  flaga2=3; 
+    ledState2 = HIGH; 
+ // ledState3 = LOW;  
+    ledState4 = LOW;                          // opis  sie powtarza inne ledy zapalane i gaszone                                  
+    previousMillis2 = Millis2 ;
+    digitalWrite(ledPin2, ledState2);  
+ // digitalWrite(ledPin3, ledState3);    
+    digitalWrite(ledPin4, ledState4);                             
+  }
+  //----------- obsługa wyswietlacza tu wyswietlam flaga2  z odrebnym czasem millis  ---------------------------------
+  
+   unsigned long Millis3 = millis();
+   if (Millis3 - previousMillis3 >= 500)       // czas... co ile wczytuje na oled  inny niz przejscie miedzy ledami znacznie szybszy         
+  {
+      u8g.firstPage();          //typowa petla U8glib.h w ktorej musi wyswietlac się wartosc flaga2
+  do { 
+      u8g.setPrintPos(10, 20);  //pozycja  an ekranie
+      u8g.print(flaga2);        // liczba ktora dioda swieci = flaga 2
+    } while( u8g.nextPage() );                                                  
+      previousMillis3 = Millis3;  // kasowanie millis
+    }  
+}
+//-----------------------------------------------
