@@ -1,0 +1,162 @@
+#include <Bounce2.h>
+#include <OneWire.h>
+#include <DS18B20.h>
+#include <Adafruit_SSD1306.h>
+#include <Adafruit_GFX.h>
+#define ONEWIRE_PIN 8
+#define ledPin10 10
+#define ledPin11 11
+#define ledPin12 12  //czytanie
+#define ledPin6 6
+#define ledPin5 5 
+#define SW 4
+//------------------------------zmienne 60 % nie potrzebnych -----------------------------------
+unsigned long previousMillis1 = 0;    
+unsigned long previousMillis2 = 0;           
+unsigned long time1 = 0; 
+//------------- 
+int flaga1 = 0;  
+int flaga2 = 0;    
+
+int ilosc_impulsow = 0;  
+int wartosc = 0;
+int licznik = 0;
+//---------------
+int t1_OFF; 
+int t1_ON ;
+int t2_OFF;
+int t2_ON;
+//---------------     
+float temperatura2;
+float temperatura1;  
+int temperatura1a; 
+int temperatura2a;
+int width=4;
+
+float tempMAX1 = 0; float tempMAX2 = 0; 
+float tempMIN1 = 000;float tempMIN2 = 150;
+const byte address[2][8] PROGMEM = {
+0x28,0xFF,0x81,0x1E,0x2,0x17,0x3,0x4C,  //blue
+0x28,0xFF,0x6F,0x18,0x2,0x17,0x3,0x3D};  //red     adresy  czujników
+int Red_pomiarINT[23] ={};
+int Blue_pomiarINT[23] ={};
+float Red_pomiarFL [23] ={};
+float Blue_pomiarFL[23] ={};
+int probki = 23;
+int odstep_probek = 1;
+OneWire onewire(ONEWIRE_PIN);
+DS18B20 sensors(&onewire);
+Bounce debouncer = Bounce(); 
+#define OLED_RESET 4
+Adafruit_SSD1306 Display(OLED_RESET);
+//-------------------------------------------------------------------------------------------------- 
+      
+void setup()
+{
+  debouncer.attach(SW);
+  debouncer.interval(4);
+  while(!Serial);
+  Serial.begin(9600);
+  
+  sensors.begin();
+  sensors.request();
+  pinMode(ledPin6, OUTPUT);
+  pinMode(ledPin5, OUTPUT);
+  pinMode(ledPin10,OUTPUT);
+  pinMode(ledPin11,OUTPUT);
+  pinMode(ledPin12,OUTPUT);
+  pinMode(SW,INPUT_PULLUP);
+
+  time1 = millis(); 
+  Display.begin(SSD1306_SWITCHCAPVCC, 0x3C);  
+  Display.clearDisplay();
+  Display.display();
+}
+  //-----------------------------------------------------------------
+  void loop(){
+      Display.setTextColor(WHITE, BLACK);                             // ustawienie  ekranu 
+      debouncer.update();
+  if (sensors.available())                                         // jak  w nazwie
+  {
+    temperatura1 = sensors.readTemperature(FA(address[0]));           //czytanie  temometrów
+    temperatura2 = sensors.readTemperature(FA(address[1]));           //czytanie  temometrów    do floatu 
+
+     temperatura1a = sensors.readTemperature(FA(address[0]));           //czytanie  temometrów  do int
+     temperatura2a = sensors.readTemperature(FA(address[1]));           //czytanie  temometrów
+
+   
+      if ( wartosc==0 )    
+      { 
+         Display.setCursor(4,4);  Display.print(temperatura2); Display.print ("C");           //temp. na  ekran przykład 
+         Display.setCursor(105,15); Display.print(tempMAX2,0); Display.print ("C");             // na  ekran
+         Display.setCursor(105,30); Display.print(tempMIN2,0); Display.print ("C");               // na  ekran
+      }
+  
+      sensors.request();
+      Display.display();
+  }
+  //-1------------------------------------------------------------                    // "Układ MIlisowy jak dla 2* led migających   pierwsza dioda  zapala się i gasnie "
+    unsigned long Millis2 = millis();                                                 // W tym samym czasie druga  dioda  zapala się i gasnie  zadania  ze sobą nie kolidują 
+  if ( (Millis2 - previousMillis2 >=  (odstep_probek*500))&&(flaga2==0))             // pierwsza dioda  swieci 1s   druga  1s do niej rownolegle i gasna obie itd
+  { 
+      digitalWrite(ledPin6, HIGH);  
+    flaga2=1;                                                                        // "powtarzalne" serce kodu   {106-110} TU JEST PROBLEM
+    previousMillis2 = Millis2 ; 
+    
+      for(int i = (probki-1); i > 0 ; i--)                                          //         czyta temperature  w kółko i dopisuje  do tablicy o wielkosci (probki)   
+       {                                                                            //
+          Blue_pomiarFL[i] = Blue_pomiarFL[i-1];                                    //      przesowa tablice  o jedna  pozycje   (TABLICA FLOAT pierwszego czujnika( nazwa blue))
+       }                                                                            //
+          Blue_pomiarFL [0] =  temperatura1;                                        //         wczytuje  temperature   do konca/poczatku tablicy na  pozycje   0
+    }
+  
+  //-2--------------------------------------
+  if ( (Millis2 - previousMillis2 >=  (odstep_probek*500))&&(flaga2==1))           //pierwsz dioda gasnie  seknde " wskakuje "  na gore  aby swiecic       {linia 99}
+  {
+     digitalWrite(ledPin6, LOW);  
+    flaga2=0;                                                        
+    previousMillis2 = Millis2 ;
+       for(int j = (probki-1); j > 0 ; j--)
+       {
+           Red_pomiarFL[j] = Red_pomiarFL[j-1];                                                                          //(TABLICA FLOAT drugiego czujnika)
+       }
+           Red_pomiarFL [0] =  temperatura2; 
+                                         
+  }
+  //-1-1-----------------------------------------------------------
+  unsigned long Millis1 = millis();
+  if ( (Millis1 - previousMillis1 >=  (odstep_probek*500))&&(flaga1==0))                     //druga  dioda ktorej nie  ma  w kodzie zapala się na  1s równolegle  do pierwszej 
+  {                                                                                         // zadania  sa  osobne chodzi o petle     
+    flaga1=1; 
+    previousMillis1 = Millis1 ; 
+   
+       for(int f = (probki-1); f > 0 ; f--)
+       {
+          Blue_pomiarINT[f] = Blue_pomiarINT[f-1];                                                                                 //(TABLICA INT pierwszego czujnika)
+       }
+       }
+          Blue_pomiarINT [0] =  temperatura1a;
+    
+    
+                                                            
+  }
+  //-1-2---------
+  if ( (Millis1 - previousMillis1 >=  (odstep_probek*500))&&(flaga1==1))                    //druga dioda gasnie  seknde " wskakuje "  na gore  aby swiecic  {linia  127}
+  {
+    flaga1=0;                                                        
+    previousMillis1 = Millis1 ;                                                                             //(TABLICA INT drugiego czujnika)
+    
+     /*
+           for(int b = (probki-1); b > 0 ; b--)                            /////////////////////////////////////                                   
+       {                                                                  //                                 //
+          Red_pomiarINT[b] = Red_pomiarINT[b-1];                         //    PO ODKOMENTOWANIU   GLEBA    //
+       }                                                                //                                 //
+          Red_pomiarINT [0] =  temperatura2a;                          /////////////////////////////////////
+     */                                      
+  }
+  
+  //-------------------------------------------------------------- 
+ }
+
+
+
