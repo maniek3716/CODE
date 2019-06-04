@@ -1,0 +1,257 @@
+#include <Bounce2.h>
+#include <OneWire.h>
+#include <DS18B20.h>
+#include <Adafruit_SSD1306.h>
+#include <Adafruit_GFX.h>
+#define ONEWIRE_PIN 8
+#define ledPin10 10
+#define ledPin11 11
+#define ledPin12 12  //czytanie
+#define ledPin6 6
+#define ledPin5 5 
+#define SW 4
+//-----------------------------------------------------------------
+unsigned long previousMillis = 0;   
+unsigned long time1 = 0; 
+//-------------
+int ilosc_impulsow = 0;  
+int wartosc = 0;
+int licznik = 0;
+//---------------
+int t1_OFF; 
+int t1_ON ;
+int t2_OFF;
+int t2_ON;
+//---------------     
+float temperatura2;
+float temperatura1; 
+int flaga = 1; 
+int width=2;
+
+int tempMAX1 = 0; int tempMAX2 = 0; 
+int tempMIN1 = 150;int tempMIN2 = 150;
+const byte address[2][8] PROGMEM = {
+0x28,0xFF,0x81,0x1E,0x2,0x17,0x3,0x4C,  //blue
+0x28,0xFF,0x6F,0x18,0x2,0x17,0x3,0x3D};  //red
+
+int Red_pomiarFL [44] ={};
+int Blue_pomiarFL[44] ={};
+int probki = 44;
+int odstep_probek = 1;
+OneWire onewire(ONEWIRE_PIN);
+DS18B20 sensors(&onewire);
+Bounce debouncer = Bounce(); 
+#define OLED_RESET 4
+Adafruit_SSD1306 Display(OLED_RESET);
+//--------------------------------------------------------------------------------------------------
+void setup() {
+  debouncer.attach(SW);
+  debouncer.interval(4);
+  while(!Serial);
+  Serial.begin(9600);
+  
+  sensors.begin();
+  sensors.request();
+  pinMode(ledPin6, OUTPUT);
+  pinMode(ledPin5, OUTPUT);
+  pinMode(ledPin10,OUTPUT);
+  pinMode(ledPin11,OUTPUT);
+  pinMode(ledPin12,OUTPUT);
+  pinMode(SW,INPUT_PULLUP);
+  attachInterrupt(0, blinkA, LOW); 
+  attachInterrupt(1, blinkB, LOW); 
+  time1 = millis(); 
+  Display.begin(SSD1306_SWITCHCAPVCC, 0x3C);  
+  Display.clearDisplay();
+  Display.display();
+  
+}
+//--------------------------------------------------------------------------------------------------
+void loop() {
+   Display.setTextColor(WHITE, BLACK);
+   debouncer.update();
+  if (sensors.available())
+  {
+    temperatura1 = sensors.readTemperature(FA(address[0]));
+    temperatura2 = sensors.readTemperature(FA(address[1]));
+
+     if (temperatura1 > tempMAX1) { tempMAX1 = temperatura1;}
+     if (temperatura1 < tempMIN1) { tempMIN1 = temperatura1;} 
+     if (temperatura2 > tempMAX2) { tempMAX2 = temperatura2;}
+     if (temperatura2 < tempMIN2) { tempMIN2 = temperatura2;} 
+  
+      if ( wartosc==0  )    
+      { 
+        Display.setTextSize(2);
+         Display.setCursor(4,4);  Display.print (temperatura1); Display.print (F("C"));  
+         Display.setTextSize(1);
+
+           Display.setCursor(80,0);  Display.print(temperatura2,1); Display.print (F("C"));
+         
+         Display.setCursor(110,30); Display.print (tempMAX1); Display.print (F("C"));     
+         Display.setCursor(110,56); Display.print (tempMIN1); Display.print (F("C"));
+        
+      }
+      if ( wartosc==1 )    
+      { 
+        Display.setTextSize(2);
+         Display.setCursor(4,4);  Display.print(temperatura2); Display.print (F("C"));
+         Display.setTextSize(1);
+
+         Display.setCursor(80,0);  Display.print (temperatura1,1); Display.print (F("C"));  
+         
+         Display.setCursor(110,30); Display.print(tempMAX2); Display.print (F("C"));      
+         Display.setCursor(110,56); Display.print(tempMIN2); Display.print (F("C"));
+      } 
+        if ( wartosc==2 or wartosc==3 or wartosc==4 or wartosc==5  )    
+      { 
+         if ( wartosc==2  )    
+         {  
+         t1_ON=licznik;                       
+         Display.setCursor(20,7);Display.print(F("IF-T > T1-ON"));
+         }
+          if ( wartosc==3 )    
+         { 
+         t2_ON=licznik;                    
+         Display.setCursor(20,20);Display.print(F("IF-T > T2-ON"));
+         }
+           if ( wartosc==4 )    
+         { 
+         t1_OFF=licznik;                   
+         Display.setCursor(20,39);Display.print(F("IF-T < T1-OFF"));
+         }
+           if ( wartosc==5 )    
+         { 
+          t2_OFF=licznik;
+         Display.setCursor(20,52);Display.print(F("IF-T < T2-OFF"));  
+         }    
+         Display.setCursor(4,7);Display.print(t1_ON); if(t1_ON<10){Display.fillRect(10,7,7,7,BLACK);} 
+         Display.setCursor(4,20);Display.print(t2_ON); if(t2_ON<10){Display.fillRect(10,20,7,7,BLACK);}
+         Display.setCursor(4,39);Display.print(t1_OFF);if(t1_OFF<10){Display.fillRect(10,39,7,7,BLACK);}// Display.setCursor(100,13);Display.print("<OFF");
+         Display.setCursor(4,52);Display.print(t2_OFF);if(t2_OFF<10){Display.fillRect(10,52,7,7,BLACK);}
+      }        
+           if (temperatura1 > t1_ON )  {digitalWrite(ledPin5,  HIGH); digitalWrite(ledPin6, LOW); } 
+           if (temperatura2 > t2_ON )  {digitalWrite(ledPin11, HIGH); digitalWrite(ledPin10,LOW); } 
+           if (temperatura1 < t1_OFF ) {digitalWrite(ledPin5,   LOW); digitalWrite(ledPin6, HIGH);}              
+           if (temperatura2 < t2_OFF ) {digitalWrite(ledPin11,  LOW); digitalWrite(ledPin10,HIGH);} 
+        
+      sensors.request();
+      Display.display();
+  }
+  
+//--------------------------------------------------- 
+  unsigned long Millis = millis();
+  if ((Millis - previousMillis >= (odstep_probek*500))&&(flaga==0))                
+  {
+    flaga=1; 
+    mig();               
+    previousMillis = Millis ; 
+    for(int i = (probki-1); i > 0 ; i--)
+       {
+          Blue_pomiarFL[i] = Blue_pomiarFL[i-1];
+       }
+          Blue_pomiarFL [0] =  temperatura1; 
+           Serial.print(F("Blue- ")); 
+//++++++++++++++++++++++++++++++++++++
+       for(int i=0;i<probki;++i)
+       {
+           if(Blue_pomiarFL [i]==0 ){Serial.print(F("00.00"));}
+           else {Serial.print(   Blue_pomiarFL[i]);}
+           Serial.print(F(" "));
+       }
+           Serial.println(F(" "));
+//++++++++++++++++++++++++++++++++++++
+    if (wartosc==0)    
+    {   
+        for(int i=0;i<probki;++i)                                  
+       {    
+           int w;
+           w = w+width;               
+           Display.fillRect(1+w,(64-2-(Blue_pomiarFL[i])), (width-1), Blue_pomiarFL[i]         ,WHITE);                     
+           Display.fillRect(1+w, 0                        , (width-1), (64-2-0-Blue_pomiarFL[i]),BLACK);                
+       }        
+         siatka();
+    }           
+//---------------------------------------------------             
+  }
+  if ((Millis - previousMillis >= (odstep_probek*500))&&(flaga==1))                
+  {
+    flaga=0;                                                       
+    previousMillis = Millis ;
+       mig() ;         
+       for(int j = (probki-1); j > 0 ; j--)
+       {
+           Red_pomiarFL[j] = Red_pomiarFL[j-1];
+       }
+           Red_pomiarFL [0] =  temperatura2; 
+//++++++++++++++++++++++++++++++++++++   
+        Serial.print(F("Red - ")); 
+       for(int j=0;j<probki;++j)
+       {
+         if(Red_pomiarFL [j]==0 ){Serial.print(F("00.00"));}
+         else {Serial.print(   Red_pomiarFL [j]);}
+           Serial.print(F(" "));
+       }
+           Serial.println(' ');    
+//++++++++++++++++++++++++++++++++++++
+       if(wartosc==1)      
+    {   
+        for(int j=0;j<probki;++j)                                  
+       {    
+           int v;
+           v = v+width;             
+           // Display.fillRect(113, 56 ,20, 20,BLACK);   //uswa artefakty z wyswietlacza z podziau float pod temp min tylko przy floacie                                                                                     
+           Display.fillRect(1+v,(64-2-Red_pomiarFL[j]), (width-1), Red_pomiarFL[j]          ,WHITE);                     
+           Display.fillRect(1+v, 0                        , (width-1), (64-2-0-Red_pomiarFL[j]),BLACK);                  
+       }        
+       siatka();              
+    }
+//---------------------------------------------------                                             
+  }
+       while (licznik != ilosc_impulsow)
+    {
+       licznik = ilosc_impulsow;
+       if(ilosc_impulsow>=55 or ilosc_impulsow<=0 )
+        {
+          ilosc_impulsow=0;
+          licznik=0;
+        }     
+    }
+    if ( debouncer.fell() )
+    {
+      licznik=0;
+            if ( wartosc==5 ) { ilosc_impulsow=0; }            //po wyjsciu z ekranu ustawia 0 na następne wejsciu na ekran
+      wartosc++;                                               //przesowa na koleny ekran wartosc
+      Display.fillRect(0,0,128,64,BLACK);                      // czysci ekran
+      Display.clearDisplay();        
+      if (wartosc>=6) {wartosc=0;}                             // zamyka petle przycisku zmiana  menu
+      } 
+}
+void blinkA()
+{
+ if ((millis() - time1) > 10)
+ ilosc_impulsow++; 
+ time1 = millis();
+}
+void blinkB()
+{
+ if ((millis() - time1) > 10) 
+ ilosc_impulsow-- ;
+ time1 = millis();
+}
+void siatka()                        
+{
+  for(int k=2;k<60;k=k+5)                                  
+   {
+     Display.fillRect(1, k ,120, 1,BLACK);
+   }  
+}
+void mig()
+{
+  digitalWrite(ledPin12,HIGH);  
+      unsigned long time_mig = millis();                 
+      while(millis() < time_mig + 25)
+      {}                              
+      digitalWrite(ledPin12,LOW);
+ }
+
