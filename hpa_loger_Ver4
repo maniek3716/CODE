@@ -1,0 +1,158 @@
+#include <Bounce2.h>
+#include <Wire.h>
+#include <SPI.h>
+#include <Adafruit_BMP280.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+//-------------------------------
+unsigned long previousMillis1 = 0;    
+unsigned long previousMillis2 = 0;
+//------------- 
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+#define ledPin12 6  //czytanie
+#define BUTTON_PINA 2
+#define BUTTON_PINB 3
+Bounce debouncerA = Bounce(); 
+Bounce debouncerB = Bounce(); 
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++
+int  licznik ;
+int flaga1 = 0;  
+int flaga2 = 0; 
+float t;
+int t1;
+float p;
+int p1;
+int width=3;
+int Blue_pomiarFL[40] ={};
+int probki = 40;
+int odstep_probek = 660 ;
+#define escalaejey 10 //en pixels
+int i=0,j=0,ii=0,iii=0,muevepantalla=0;
+//-------------------------------
+Adafruit_BMP280 bmp; // I2C
+#define OLED_RESET 4
+Adafruit_SSD1306 display(OLED_RESET);
+
+void setup() {
+  Serial.begin(9600);
+
+  if (!bmp.begin(0x76))
+  {
+    Serial.println(F("Could not find a valid BMP280 sensor, check wiring!"));
+    while (1);
+  }
+//+++++++++++++++++++++++++++++++++++++++++++++++
+  pinMode(BUTTON_PINA,INPUT_PULLUP);
+  pinMode(BUTTON_PINB,INPUT_PULLUP);
+  debouncerA.attach(BUTTON_PINA);
+  debouncerB.attach(BUTTON_PINB);
+
+   pinMode(ledPin12,OUTPUT);
+  debouncerA.interval(5);
+  debouncerB.interval(5);
+
+
+//++++++++++++++++++++++++++++++++++++++++++++++
+
+
+  display.begin(SSD1306_SWITCHCAPVCC, 0x3C);  
+  display.clearDisplay();
+  display.display();
+}
+
+void loop() 
+{
+
+display.setTextColor(WHITE, BLACK);
+  p1=((bmp.readPressure()/100)+licznik);  //int
+  t1=(bmp.readTemperature());
+  p=((bmp.readPressure()/100)+licznik);  //float
+  t=(bmp.readTemperature());
+     
+if ( p1> 1032) { display.fillRect(0,0, 124,64,BLACK); }
+if ( p1 < 970 ) { display.fillRect(0,0, 124,64,BLACK); }
+        if ( p1>=1008)  
+        {
+          display.setCursor(63,57);  display.print(p1,1); display.print(" hPa");
+          display.setCursor(8,57);  display.print(t);  display.print("C");
+           if ( p1==1008) { display.fillRect(0,0, 120,11,BLACK); }
+        }
+        if ( p1<1008)  
+        {
+        if ( p1==1007) { display.fillRect(0,60, 120,11,BLACK); }  
+        display.setCursor(63,1);  display.print(p1,1); display.print(" hPa");
+        display.setCursor(4,1);  display.print(t);  display.print("C");
+        }
+        display.display(); 
+
+//++++++++++++++++++++++++++++++++++++
+  debouncerA.update();
+  debouncerB.update();
+ 
+ // Get the update value
+ int valueA = debouncerA.fell();    
+  int valueB = debouncerB.fell();
+ 
+ // Turn on or off the LED
+ if ( valueA == LOW) {
+    licznik --;
+ }  
+  if ( valueB == LOW) {
+   licznik ++;
+ }
+//+++++++++++++++++++++++++++++++++++
+unsigned long Millis1 = millis();
+    if ( Millis1 - previousMillis1 >=  (1000)   )    //&&(flaga1==0)
+  {
+    flaga1=1; 
+    previousMillis1 = Millis1 ; 
+        mig();
+      for(int i = (probki-1); i > 0 ; i--)
+       {
+          Blue_pomiarFL[i] = Blue_pomiarFL[i-1];
+       }
+          Blue_pomiarFL [0] =  p1;
+        for(int i=0;i<probki;++i)
+       {                                      
+           int w;
+           w = w+width;         
+           
+         if ( p1>=985 and p1 <= 1016) 
+         {
+           display.fillRect(1+w, 0    , (width-1),( (1016-Blue_pomiarFL[i])*2),BLACK);       
+           display.fillRect(1+w,((1016-Blue_pomiarFL[i])*2), (width-1),1  ,WHITE);  
+           display.fillRect(1+w,((1016-Blue_pomiarFL[i]+ 1)*2) , (width-1)   , (64-((1016-Blue_pomiarFL[i]+1)*2))   ,BLACK);   
+         }
+
+         if((p1>969 and p1<985 )or(p1>1016 and p1<1032))
+         {
+        
+           display.fillRect(1+w, 0    , (width-1), (1032-Blue_pomiarFL[i]),BLACK);       
+           display.fillRect(1+w,(1032-Blue_pomiarFL[i]), (width-1),1  ,WHITE);  
+           display.fillRect(1+w,(1032-Blue_pomiarFL[i]+ 1) , (width-1)   , (64-(1032-Blue_pomiarFL[i]+1))   ,BLACK);   
+         }
+       grid();
+       }           
+  }
+}
+
+void grid ()
+{
+      for(i=0;i<=124;i=i+24)
+    {           display.drawPixel(i,12,WHITE);
+                display.drawPixel((i),32,WHITE);
+                display.drawPixel(i,52,WHITE);
+    }
+    
+    }
+
+void mig()
+{
+  digitalWrite(ledPin12,HIGH);  
+      unsigned long time_mig = millis();                 
+      while(millis() < time_mig + 25)
+      {}                              
+      digitalWrite(ledPin12,LOW);
+ }
+
