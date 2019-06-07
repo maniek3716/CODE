@@ -59,17 +59,17 @@ display.setTextColor(WHITE, BLACK);
      
 if ( p1> 1032) { display.fillRect(0,0, 124,64,BLACK); }
 if ( p1 < 970 ) { display.fillRect(0,0, 124,64,BLACK); }
-        if ( p1>=1008)  
+        if ( p1>=1010)  
         {
-          display.setCursor(63,57);  display.print(p1,1); display.print(" hPa");
-          display.setCursor(8,57);  display.print(t);  display.print("C");
-           if ( p1==1008) { display.fillRect(0,0, 120,11,BLACK); }
+          display.setCursor(63,56);  display.print(p1,1); display.print(" hPa");
+          display.setCursor(4,56);  display.print(t);  display.print("C");
+           if ( p1==1010) { display.fillRect(0,0, 120,11,BLACK); }
         }
-        if ( p1<1008)  
+        if ( p1<1010)  
         {
-        if ( p1==1007) { display.fillRect(0,60, 120,11,BLACK); }  
-        display.setCursor(63,1);  display.print(p1,1); display.print(" hPa");
-        display.setCursor(4,1);  display.print(t);  display.print("C");
+        if ( p1==1009) { display.fillRect(0,60, 120,11,BLACK); }  
+        display.setCursor(63,0);  display.print(p1,1); display.print(" hPa");
+        display.setCursor(4,0);  display.print(t);  display.print("C");
         }
         display.display(); 
 //-------
