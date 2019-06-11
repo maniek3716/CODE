@@ -1,0 +1,160 @@
+
+#include <SPI.h>
+#include <Wire.h>
+#include <Bounce2.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_BMP280.h>
+#include <Adafruit_SSD1306.h>
+#define ledPin6 6 
+#define ledPin7 7
+#define BUTTON_PINA 2
+#define BUTTON_PINB 3
+Bounce debouncerA = Bounce(); 
+Bounce debouncerB = Bounce();         // pdłaczenie bounce                     
+//-------
+unsigned long previousMillis  = 0;
+unsigned long previousMillis1 = 0;    
+unsigned long previousMillis2 = 0;   
+//-------   
+int  licznik ;                        //Zmiana podstawy cisnienia  (do testów)
+int p1;float t; float p;              // T i P 
+int i=0;
+int j;                                // ktory kolejny pomiar na  wyswietlaczu na  dole
+int width =   2;                      // 2*60, 3*40 =120 szeokosc lini 1 pomiaru ekran - ilosc  probek  mieszczaca sie   na ekranie
+int ProbkiINT[60] ={};                // tablica probek            - ilosc  probek  mieszczaca sie   na ekranie
+int Probki =  60;                     // ilosc probek  zwiazek  z tablicami  
+int Czas_Probkowania = 100 ;          // mnożnik do milis
+//-------
+Adafruit_BMP280 bmp;                  
+#define OLED_RESET 4
+Adafruit_SSD1306 display(OLED_RESET);
+//++++++++++++++++++++++++++++++++++++++++++++++
+void setup() {
+  Serial.begin(9600);
+
+  if (!bmp.begin(0x76))                    //Adres czujnika ,czy jest 
+  {
+    Serial.println(F("Check wiring!"));
+    while (1);
+  }
+  
+  pinMode(ledPin6,OUTPUT);
+  pinMode(ledPin7,OUTPUT);
+  pinMode(BUTTON_PINA,INPUT_PULLUP);
+  pinMode(BUTTON_PINB,INPUT_PULLUP);
+  debouncerA.attach(BUTTON_PINA);
+  debouncerB.attach(BUTTON_PINB);
+  debouncerA.interval(5);
+  debouncerB.interval(5);
+  display.begin(SSD1306_SWITCHCAPVCC, 0x3C);  // Przgotowanie wyswietlacza
+  display.clearDisplay();
+  display.display();
+}
+//++++++++++++++++++++++++++++++++++++++++++++++
+void loop() 
+{
+    unsigned long Millis1 = millis();                      
+          if ( Millis1 - previousMillis1 >=  (5000))      //Wczytanie co 1s T/P
+            {
+  /* int  */    p1= ((bmp.readPressure()/100)+licznik);  
+ /*float */     p=  ((bmp.readPressure()/100)+licznik);  
+                t=  (bmp.readTemperature());
+            previousMillis1 = Millis1 ; 
+            }
+//-------        
+    unsigned long Millis2 = millis();                     //Print T/P 
+          if ( Millis2 - previousMillis2 >=  (10000)) 
+            {
+    mig(ledPin7);                                         //mignij przy wyswietleniu 
+             display.setTextColor(WHITE, BLACK);
+
+            //  display.setCursor(10,36);  display.print(j);
+             
+              if ( p1> 1032 or p1 < 970) { display.fillRect(0,0, 120,64,BLACK); }  //czarny ekran if... z wartosciami
+           
+                   if ( p1>=1000)  //Jesli wieksze liczby T/P na  ekranie  na dole  
+                               {
+                                   if ( p1>=1000 and p1<=1002) { display.fillRect(0,0, 124,11,BLACK); }  //kasowanie resztek liczby po przeniesieniu 
+                                   display.setCursor(68,57);  display.print(p,1); display.print("hPa");
+                                   display.setCursor(0,57);  display.print(t,1);  display.print("C");   
+                               }
+                               if ( p1<1000)  //Jesli mniejsze liczby T/P na  ekranie  na gorze  
+                               {
+                                   if ( p1<1000 and p1>=998  ) { display.fillRect(0,57, 124,11,BLACK); }  
+                                   display.setCursor(68,0);  display.print(p,1); display.print(" hPa");
+                                   display.setCursor(0,0);  display.print(t,1);  display.print("C");
+                               }
+                    display.display();     // Wyswietl na  ekran 
+            previousMillis2 = Millis2 ; 
+            }
+
+//-------
+
+  debouncerA.update();
+  debouncerB.update();                           // przyciski - ,  +  do podsatawy 
+ 
+       int valueA = debouncerA.fell();    
+       int valueB = debouncerB.fell();
+             if ( valueA == LOW){
+                  licznik --;
+             }  
+             if ( valueB == LOW) {
+                  licznik ++;
+                }
+
+unsigned long Millis = millis();
+    if ( Millis - previousMillis >=  (720000)) //  720000 pomiar co 12 min  60 pomiarów to 12h działka na ekranie to 1h
+    {
+    //  j++;                                   // ktory to pomiar
+   mig(ledPin6);                               // mignij przy odczycie do tablicy                   
+   WczytajTablicePrzesun( p1, ProbkiINT);   
+   int w = - width ;                           // ustawia  początek startu wykresu 
+        for(int i=0;i<Probki;++i)              // wyswietla  tablice  do wykresu
+       {                                       //wykres  ze skalowaniem w zaleznosci od  cisnienia 1hPa 2pix or 1pix                          
+           w = w+width;                        //przesowanie  wykresu 
+         if ( p1>=985 and p1 <= 1016)          // 1016 to szczyt wyswietlacza  16*2 mnoznik pol wyswietlacza 1hPa to dwa pix
+         {                                     // 3  tablice 3  czesci słupek czarny gorny linia  biala czarny dolny 
+             display.fillRect(w, 0    , (width),( (1016-ProbkiINT[i])*2),BLACK);     //*2 mnoznik splyca wykres  
+             display.fillRect(w,((1016-ProbkiINT[i])*2), (width),1  ,WHITE);  
+            display.fillRect(w,((1016-ProbkiINT[i]+ 1)*2) , (width)   , (64-((1016-ProbkiINT[i]+1)*2))   ,BLACK);   
+         }
+         if((p1>969 and p1<985 )or(p1>1016 and p1<1032))  //po wyjsciu z  zakresu 1pix  to 1hPa zmiana  wysokosci wykresu 
+         {
+            display.fillRect(w, 0    , (width), (1032-ProbkiINT[i]),BLACK);       
+            display.fillRect(w,(1032-ProbkiINT[i]), (width),1  ,WHITE);        // linia white  pomiaru szerokosc 2
+            display.fillRect(w,(1032-ProbkiINT[i]+ 1) , (width)   , (64-(1032-ProbkiINT[i]+1))   ,BLACK);   
+         }
+         previousMillis = Millis ; 
+       }           
+    }
+//-------
+grid();
+//-------
+}
+//++++++++++++++++++++++++++++++++++++++++++++++
+void grid ()                   //siatka na ekranie 12h 
+{
+      for(i=0;i<=120;i=i+10)
+    {         
+      display.drawPixel(i,12,WHITE);
+      display.drawPixel((i),32,WHITE);
+      display.drawPixel(i,52,WHITE);
+    }
+}
+//-------
+void mig(int led)                // mig
+{ 
+      digitalWrite(led,HIGH);  
+      unsigned long time_mig = millis();                 
+         while(millis() < time_mig + 25)
+         {}                              
+      digitalWrite(led,LOW);
+}
+void WczytajTablicePrzesun(int pressure,int P[] )
+    {
+      for(int i = (Probki-1); i > 0 ; i--)
+       {
+          P[i] = P[i-1];
+       }
+          P[0] =  pressure;
+    }
